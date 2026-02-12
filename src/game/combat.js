@@ -56,26 +56,37 @@
 
     victim.hp = Math.max(0, (victim.hp || 0) - final);
 
-    // Crime hooks
-    if (attacker.kind === 'player' && victim.kind === 'npc') {
-      if (victim.faction !== 'bandits' && victim.faction !== 'rebels') {
-        // assault/murder unless already hostile
-        if (!victim.hostile && cause === 'melee') {
-          LW.law.recordCrime(app, LW.law.CRIME.ASSAULT, victim.x, victim.y, 1);
-          LW.law.reputation.townfolk -= 1;
-          if (victim.faction === 'guards') LW.law.reputation.guards -= 2;
-          if (victim.faction === 'nobles') LW.law.reputation.nobles -= 3;
+    // Crime hooks (sparring is explicitly exempt)
+    if (!victim.spar) {
+      if (attacker.kind === 'player' && victim.kind === 'npc') {
+        if (victim.faction !== 'bandits' && victim.faction !== 'rebels') {
+          // assault/murder unless already hostile
+          if (!victim.hostile && cause === 'melee') {
+            LW.law.recordCrime(app, LW.law.CRIME.ASSAULT, victim.x, victim.y, 1);
+            LW.law.reputation.townfolk -= 1;
+            if (victim.faction === 'guards') LW.law.reputation.guards -= 2;
+            if (victim.faction === 'nobles') LW.law.reputation.nobles -= 3;
+          }
         }
       }
     }
 
     if (victim.hp <= 0) {
-      victim.dead = true;
-      if (victim.kind === 'npc' && victim.faction !== 'bandits' && victim.faction !== 'rebels') {
-        LW.law.recordCrime(app, LW.law.CRIME.MURDER, victim.x, victim.y, 3);
-        LW.law.reputation.townfolk -= 10;
-        if (victim.faction === 'guards') LW.law.reputation.guards -= 18;
-        if (victim.faction === 'nobles') LW.law.reputation.nobles -= 24;
+      // Training sparring is non-lethal.
+      if (victim.spar) {
+        victim.hp = 1;
+        victim.dead = false;
+      } else if (victim.kind === 'player' && LW.quests && LW.quests.spar && LW.quests.spar.active) {
+        victim.hp = 1;
+        victim.dead = false;
+      } else {
+        victim.dead = true;
+        if (victim.kind === 'npc' && victim.faction !== 'bandits' && victim.faction !== 'rebels') {
+          LW.law.recordCrime(app, LW.law.CRIME.MURDER, victim.x, victim.y, 3);
+          LW.law.reputation.townfolk -= 10;
+          if (victim.faction === 'guards') LW.law.reputation.guards -= 18;
+          if (victim.faction === 'nobles') LW.law.reputation.nobles -= 24;
+        }
       }
     }
   }

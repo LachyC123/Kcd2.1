@@ -128,6 +128,7 @@
       LW.law.reputation.guards = 0;
       LW.law.reputation.nobles = 0;
       LW.law.reputation.rebels = 0;
+      if (LW.quests && LW.quests.reset) LW.quests.reset();
     }
   };
 
@@ -146,6 +147,7 @@
       timeMinutes: this.world.timeMinutes | 0,
       player: this.player.serialize(),
       rep: LW.law.reputation,
+      quests: LW.quests && LW.quests.serialize ? LW.quests.serialize() : null,
     };
     return LW.storage.save(data);
   };
@@ -155,6 +157,7 @@
     if (data.day != null && data.timeMinutes != null) this.world.setTimeFromSave(data.day, data.timeMinutes);
     this.player.deserialize(data.player);
     if (data.rep) LW.law.reputation = data.rep;
+    if (data.quests && LW.quests && LW.quests.deserialize) LW.quests.deserialize(data.quests);
   };
 
   App.prototype.update = function (dt) {
@@ -237,6 +240,9 @@
       return;
     }
 
+    // World interactions (jobs/props)
+    if (LW.quests && LW.quests.tryInteract && LW.quests.tryInteract(this)) return;
+
     // Fallback: open a dialogue with "self" tips.
     const w = this.world;
     const t = LW.consts.TILE;
@@ -289,14 +295,8 @@
     LW.audio.beep(330, 0.05, 'square', 0.015);
   };
 
-  App.prototype._tryAttack = function (dt) {
-    // Placeholder attack: stamina drain + tiny sound + toast gating
-    const now = LW.now();
-    if (now - this.player.lastAttackT < 300) return;
-    if (this.player.sta < 10) return;
-    this.player.sta -= 10;
-    this.player.lastAttackT = now;
-    LW.audio.beep(220, 0.04, 'triangle', 0.02);
+  App.prototype._tryAttack = function () {
+    // Attacks are handled by `LW.combat` (kept for backwards safety).
   };
 
   App.prototype.render = function () {
@@ -352,6 +352,9 @@
         }
       }
     }
+
+    // World markers (jobs/training)
+    if (LW.quests && LW.quests.render) LW.quests.render(ctx, this, left, top);
 
     // Subtle vignette/shadow (reduced in low power)
     if (!LW.flags.lowPower) {

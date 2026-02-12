@@ -76,6 +76,8 @@
       this.state = STATE.IDLE;
       this.faction = 'townfolk';
       this.rank = 0;
+      this.key = '';
+      this.blocking = false;
 
       // Combat stats/state
       this.hp = 60;
@@ -84,6 +86,7 @@
       this.staMax = 60;
       this.bleedT = 0;
       this.hostile = false;
+      this.spar = false;
       this.atkPhase = 0; // 0 idle, 1 windup, 2 active, 3 recover
       this.atkT = 0;
       this.atkCd = 0;
@@ -319,13 +322,29 @@
 
       // Hamlet: farmers and woodcutter + a courier
       for (let i = 0; i < 10; i++) spawnOne(ROLE.FARMER, a.hamlet.x, a.hamlet.y, 18, 'townfolk', 0);
-      for (let i = 0; i < 4; i++) spawnOne(ROLE.WOODCUTTER, a.hamlet.x - 10, a.hamlet.y + 6, 16, 'townfolk', 0);
-      spawnOne(ROLE.COURIER, a.hamlet.x + 6, a.hamlet.y + 10, 10, 'townfolk', 0);
+      for (let i = 0; i < 3; i++) spawnOne(ROLE.WOODCUTTER, a.hamlet.x - 10, a.hamlet.y + 6, 16, 'townfolk', 0);
+      const foreman = spawnOne(ROLE.WOODCUTTER, a.hamlet.x - 6, a.hamlet.y + 12, 6, 'townfolk', 0);
+      foreman.key = 'foreman';
+      foreman.name = 'Brinna Stonehand';
+      const courier = spawnOne(ROLE.COURIER, a.hamlet.x + 6, a.hamlet.y + 10, 6, 'townfolk', 0);
+      courier.key = 'courier';
+      courier.name = 'Lucan Riverwise';
 
       // Town: tavernkeep + merchants + guards + a noble
-      spawnOne(ROLE.TAVERN, a.town.x + 6, a.town.y + 2, 10, 'townfolk', 0);
+      const tavern = spawnOne(ROLE.TAVERN, a.town.x + 6, a.town.y + 2, 6, 'townfolk', 0);
+      tavern.key = 'tavernkeep';
+      tavern.name = 'Sabira Brightscar';
       for (let i = 0; i < 8; i++) spawnOne(ROLE.FARMER, a.town.x - 10, a.town.y + 6, 20, 'townfolk', 0);
-      for (let i = 0; i < 9; i++) spawnOne(ROLE.GUARD, a.town.x - 2, a.town.y - 10, 18, 'guards', 1);
+      for (let i = 0; i < 7; i++) spawnOne(ROLE.GUARD, a.town.x - 2, a.town.y - 10, 18, 'guards', 1);
+      const trainer = spawnOne(ROLE.GUARD, a.town.x - 4, a.town.y - 12, 6, 'guards', 1);
+      trainer.key = 'trainer';
+      trainer.name = 'Cassor Iron-Quiet';
+      const clerk = spawnOne(ROLE.COURIER, a.town.x + 2, a.town.y + 1, 6, 'townfolk', 0);
+      clerk.key = 'clerk';
+      clerk.name = 'Doria Lowridge';
+      const gateGuard = spawnOne(ROLE.GUARD, a.gate.x, a.gate.y, 4, 'guards', 1);
+      gateGuard.key = 'gate';
+      gateGuard.name = 'Valcor Ashcloak';
       spawnOne(ROLE.NOBLE, a.town.x + 16, a.town.y - 2, 8, 'nobles', 2);
 
       // Wilderness threats near roads / woods
@@ -610,13 +629,20 @@
       app.dialogue.open({
         title: npc.name,
         body: greetLine,
-        choices: [
-          { label: 'Greet', onPick: () => app.ui.toast('You exchange a few words.') },
-          { label: 'Ask directions', onPick: directions },
-          { label: 'Ask rumors', onPick: rumors },
-          { label: 'Trade', onPick: trade },
-          { label: 'Threaten', onPick: threaten },
-        ],
+        choices: (() => {
+          const base = [
+            { label: 'Greet', onPick: () => app.ui.toast('You exchange a few words.') },
+            { label: 'Ask directions', onPick: directions },
+            { label: 'Ask rumors', onPick: rumors },
+            { label: 'Trade', onPick: trade },
+            { label: 'Threaten', onPick: threaten },
+          ];
+          if (LW.quests && LW.quests.getDialogueChoices) {
+            const extra = LW.quests.getDialogueChoices(app, npc);
+            if (extra && extra.length) return extra.concat(base);
+          }
+          return base;
+        })(),
       });
     },
   };
