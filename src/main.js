@@ -146,8 +146,9 @@
       day: this.world.day | 0,
       timeMinutes: this.world.timeMinutes | 0,
       player: this.player.serialize(),
-      rep: LW.law.reputation,
+      law: LW.law && LW.law.serialize ? LW.law.serialize() : { reputation: LW.law.reputation },
       quests: LW.quests && LW.quests.serialize ? LW.quests.serialize() : null,
+      worldState: LW.npc && LW.npc.serializeWorldState ? LW.npc.serializeWorldState() : null,
     };
     return LW.storage.save(data);
   };
@@ -156,8 +157,10 @@
     if (!data) return;
     if (data.day != null && data.timeMinutes != null) this.world.setTimeFromSave(data.day, data.timeMinutes);
     this.player.deserialize(data.player);
-    if (data.rep) LW.law.reputation = data.rep;
+    if (data.law && LW.law && LW.law.deserialize) LW.law.deserialize(data.law);
+    else if (data.rep) LW.law.reputation = data.rep;
     if (data.quests && LW.quests && LW.quests.deserialize) LW.quests.deserialize(data.quests);
+    if (data.worldState && LW.npc && LW.npc.applyWorldState) LW.npc.applyWorldState(this, data.worldState);
   };
 
   App.prototype.update = function (dt) {

@@ -48,6 +48,22 @@
     // witness reports queue -> after delay guards become aware
     reports: [], // {npcId, type, tx, ty, delay, severity}
 
+    serialize() {
+      return {
+        reputation: this.reputation,
+        wanted: this.wanted | 0,
+        wantedBy: this.wantedBy,
+        lastCrime: this.lastCrime,
+      };
+    },
+    deserialize(s) {
+      if (!s) return;
+      if (s.reputation) this.reputation = s.reputation;
+      if (s.wanted != null) this.wanted = s.wanted | 0;
+      if (s.wantedBy) this.wantedBy = s.wantedBy;
+      if (s.lastCrime) this.lastCrime = s.lastCrime;
+    },
+
     recordCrime(app, type, wx, wy, severity) {
       if (!app || !app.world) return;
       const t = LW.consts.TILE;

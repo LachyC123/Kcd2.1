@@ -76,6 +76,7 @@
       this.state = STATE.IDLE;
       this.faction = 'townfolk';
       this.rank = 0;
+      this.uid = 0; // stable per-seed spawn index (for save/load)
       this.key = '';
       this.blocking = false;
 
@@ -123,7 +124,9 @@
     }
 
     initRng(seed) {
-      this._rng = LW.rng.fromSeed((seed ^ Math.imul(this.id, 2654435761)) >>> 0);
+      // Use uid if set; otherwise fall back to ephemeral id.
+      const k = this.uid ? this.uid : this.id;
+      this._rng = LW.rng.fromSeed((seed ^ Math.imul(k, 2654435761)) >>> 0);
     }
 
     remember(entry) {
@@ -248,6 +251,27 @@
     bubbles: [],
     _sepAcc: 0,
 
+    serializeWorldState() {
+      const deadUids = [];
+      for (let i = 0; i < this.npcs.length; i++) {
+        const n = this.npcs[i];
+        if (n && n.dead) deadUids.push(n.uid | 0);
+      }
+      return { deadUids };
+    },
+
+    applyWorldState(app, state) {
+      if (!state) return;
+      const dead = state.deadUids;
+      if (dead && dead.length) {
+        const set = new Set(dead);
+        for (let i = 0; i < this.npcs.length; i++) {
+          const n = this.npcs[i];
+          if (n && set.has(n.uid | 0)) n.dead = true;
+        }
+      }
+    },
+
     spawnForWorld(app) {
       this.npcs.length = 0;
       this.bubbles.length = 0;
@@ -255,9 +279,11 @@
       const rng = LW.rng.fromSeed(app.seed ^ 0x4b1d55aa);
       const t = LW.consts.TILE;
       const a = app.world.anchors();
+      let spawnIndex = 0;
 
       const spawnOne = (role, baseTx, baseTy, spread, faction, rank) => {
         const n = new NPC(role);
+        n.uid = ++spawnIndex;
         n.initRng(app.seed);
         n.name = makeName(rng);
         n.faction = faction;
@@ -371,12 +397,33 @@
         const n = this.npcs[i];
         if (n.dead) continue;
 
+        // Guard override: investigate/pursue when wanted
+        let forcedGoal = null;
+        let forcedState = null;
+        if (n.faction === 'guards' && LW.law && LW.law.wanted > 0 && !n.spar) {
+          const dxp = app.player.x - n.x;
+          const dyp = app.player.y - n.y;
+          if (dxp * dxp + dyp * dyp < 160 * 160) {
+            const ttx = Math.floor(app.player.x / t);
+            const tty = Math.floor(app.player.y / t);
+            forcedGoal = { tx: ttx, ty: tty };
+            forcedState = STATE.INVESTIGATE;
+          } else if (LW.law.lastCrime) {
+            forcedGoal = { tx: LW.law.lastCrime.tx | 0, ty: LW.law.lastCrime.ty | 0 };
+            forcedState = STATE.INVESTIGATE;
+          }
+        }
+
         // Schedule -> desired state/target
         const sched = SCHEDULE[n.role] || SCHEDULE[ROLE.FARMER];
-        const desire = sched(w.timeMinutes | 0, w, n);
+        const desire = forcedGoal ? { state: forcedState, target: 'forced' } : sched(w.timeMinutes | 0, w, n);
 
         let targTx = n.homeTx;
         let targTy = n.homeTy;
+        if (forcedGoal) {
+          targTx = forcedGoal.tx;
+          targTy = forcedGoal.ty;
+        }
         if (desire.target === 'job') {
           targTx = n.jobTx;
           targTy = n.jobTy;
