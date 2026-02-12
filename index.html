@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1"
+    />
+    <meta name="theme-color" content="#14110d" />
+    <title>Frontier Kingdom: Living World (Offline)</title>
+    <style>
+      :root {
+        --bg: #14110d;
+        --ink: #1a140f;
+        --ochre: #c18b3a;
+        --ochre2: #e0b86a;
+        --paper: #efe7d6;
+        --paper2: #d9cfbb;
+        --danger: #b33a2e;
+        --good: #2f7a4c;
+        --ui: rgba(20, 17, 13, 0.75);
+        --ui2: rgba(20, 17, 13, 0.92);
+        --stroke: rgba(239, 231, 214, 0.16);
+        --radius: 14px;
+        --safe-top: env(safe-area-inset-top, 0px);
+        --safe-right: env(safe-area-inset-right, 0px);
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-left: env(safe-area-inset-left, 0px);
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--paper);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        -webkit-text-size-adjust: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+        touch-action: none;
+        user-select: none;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(1200px 800px at 50% 35%, #241b12 0%, var(--bg) 60%);
+      }
+      #gameCanvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: none;
+      }
+      #uiRoot {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .safePad {
+        padding-top: calc(10px + var(--safe-top));
+        padding-right: calc(10px + var(--safe-right));
+        padding-bottom: calc(10px + var(--safe-bottom));
+        padding-left: calc(10px + var(--safe-left));
+      }
+      .hudTop {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        pointer-events: none;
+      }
+      .hudBlock {
+        pointer-events: none;
+        background: var(--ui);
+        border: 1px solid var(--stroke);
+        border-radius: var(--radius);
+        padding: 10px 12px;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        min-width: 150px;
+      }
+      .hudLine {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 13px;
+        opacity: 0.95;
+      }
+      .barRow {
+        margin-top: 8px;
+        display: grid;
+        gap: 6px;
+      }
+      .bar {
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(239, 231, 214, 0.12);
+        border: 1px solid rgba(239, 231, 214, 0.16);
+        overflow: hidden;
+      }
+      .barFill {
+        height: 100%;
+        width: 50%;
+        background: linear-gradient(90deg, var(--ochre) 0%, var(--ochre2) 100%);
+      }
+      .barFill.hp {
+        background: linear-gradient(90deg, #b13a2d 0%, #d36342 100%);
+      }
+      .barFill.sta {
+        background: linear-gradient(90deg, #2f7a4c 0%, #4fb26d 100%);
+      }
+      .hudRightButtons {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        grid-auto-flow: row;
+        gap: 10px;
+        pointer-events: auto;
+      }
+      .hudLeftButtons {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        display: grid;
+        gap: 10px;
+        pointer-events: auto;
+      }
+      .btn {
+        pointer-events: auto;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: none;
+        border: 1px solid rgba(239, 231, 214, 0.18);
+        background: var(--ui2);
+        color: var(--paper);
+        border-radius: 16px;
+        padding: 12px 14px;
+        font-weight: 650;
+        font-size: 14px;
+        letter-spacing: 0.2px;
+        min-width: 96px;
+      }
+      .btn:active {
+        transform: translateY(1px);
+        background: rgba(32, 26, 19, 0.96);
+      }
+      .btnDanger {
+        border-color: rgba(179, 58, 46, 0.5);
+      }
+      .btnWide {
+        min-width: 140px;
+      }
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+      .panel {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        display: none;
+        pointer-events: auto;
+        align-items: center;
+        justify-content: center;
+        padding: calc(18px + var(--safe-top)) calc(18px + var(--safe-right))
+          calc(18px + var(--safe-bottom)) calc(18px + var(--safe-left));
+        background: rgba(10, 8, 6, 0.62);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+      .panel.show {
+        display: flex;
+      }
+      .card {
+        width: min(560px, 100%);
+        background: rgba(20, 17, 13, 0.96);
+        border: 1px solid rgba(239, 231, 214, 0.18);
+        border-radius: 18px;
+        padding: 16px;
+      }
+      .card h2 {
+        margin: 0 0 8px 0;
+        font-size: 18px;
+        letter-spacing: 0.2px;
+      }
+      .card p {
+        margin: 8px 0;
+        font-size: 14px;
+        line-height: 1.35;
+        color: rgba(239, 231, 214, 0.88);
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .kvs {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px 10px;
+        margin: 10px 0;
+        font-size: 13px;
+        color: rgba(239, 231, 214, 0.92);
+      }
+      .muted {
+        opacity: 0.75;
+      }
+      .small {
+        font-size: 12px;
+      }
+      .toggleRow {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(239, 231, 214, 0.06);
+        border: 1px solid rgba(239, 231, 214, 0.12);
+      }
+      .toggleRow input {
+        width: 22px;
+        height: 22px;
+      }
+      #toast {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: calc(120px + var(--safe-bottom));
+        background: rgba(20, 17, 13, 0.86);
+        border: 1px solid rgba(239, 231, 214, 0.18);
+        color: rgba(239, 231, 214, 0.92);
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-size: 13px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 180ms ease;
+        max-width: min(560px, calc(100% - 30px));
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #toast.show {
+        opacity: 1;
+      }
+      /* Big invisible touch region for joystick */
+      #touchLayer {
+        position: absolute;
+        inset: 0;
+        pointer-events: auto;
+        touch-action: none;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="gameCanvas"></canvas>
+      <div id="uiRoot" class="safePad">
+        <div class="hudTop">
+          <div id="hudLeft" class="hudBlock">
+            <div class="hudLine"><span>Day</span><span id="hudTime">--:--</span></div>
+            <div class="hudLine muted small"><span>Place</span><span id="hudPlace">—</span></div>
+            <div class="barRow">
+              <div class="bar"><div id="hudHp" class="barFill hp"></div></div>
+              <div class="bar"><div id="hudSta" class="barFill sta"></div></div>
+            </div>
+          </div>
+          <div id="hudRight" class="hudBlock">
+            <div class="hudLine"><span>Repute</span><span id="hudRep">0</span></div>
+            <div class="hudLine muted small"><span>Seed</span><span id="hudSeed">—</span></div>
+            <div class="hudLine muted small"><span>FPS</span><span id="hudFps">—</span></div>
+          </div>
+        </div>
+
+        <div class="hudLeftButtons">
+          <button id="btnMenu" class="btn btnWide">Menu</button>
+          <button id="btnHelp" class="btn btnWide">Help</button>
+          <button id="btnDebug" class="btn btnWide">Debug</button>
+        </div>
+
+        <div class="hudRightButtons">
+          <button id="btnInteract" class="btn btnWide">Interact</button>
+          <button id="btnDodge" class="btn">Dodge</button>
+          <button id="btnBlock" class="btn">Block</button>
+          <button id="btnAttack" class="btn btnDanger">Attack</button>
+        </div>
+
+        <div id="toast"></div>
+        <div id="touchLayer"></div>
+
+        <div id="panelMenu" class="panel">
+          <div class="card">
+            <h2>Frontier Kingdom</h2>
+            <p class="muted">
+              Offline living-world sandbox vertical slice. Tap-only. Explore, work, fight, and deal with the law.
+            </p>
+            <div class="row">
+              <button id="btnContinue" class="btn btnWide">Continue</button>
+              <button id="btnNew" class="btn btnWide btnDanger">New Game</button>
+            </div>
+            <div style="height: 10px"></div>
+            <div class="toggleRow">
+              <div>
+                <div><strong>Low power mode</strong></div>
+                <div class="muted small">Reduces shadows, particles, and UI animation.</div>
+              </div>
+              <input id="toggleLowPower" type="checkbox" />
+            </div>
+            <div style="height: 10px"></div>
+            <div class="row">
+              <button id="btnCloseMenu" class="btn btnWide">Close</button>
+            </div>
+            <p class="muted small" style="margin-top: 12px">
+              Tip: Use roads to travel faster. Trespassing after dark gets you noticed.
+            </p>
+          </div>
+        </div>
+
+        <div id="panelHelp" class="panel">
+          <div class="card">
+            <h2>Help & Controls</h2>
+            <div class="kvs">
+              <div><strong>Move</strong> (joystick)</div>
+              <div class="muted">touch + drag left side</div>
+              <div><strong>Attack</strong></div>
+              <div class="muted">tap/hold Attack</div>
+              <div><strong>Block</strong></div>
+              <div class="muted">hold Block</div>
+              <div><strong>Dodge</strong></div>
+              <div class="muted">tap Dodge</div>
+              <div><strong>Interact / Talk</strong></div>
+              <div class="muted">tap Interact near NPC/props</div>
+              <div><strong>Crime & Law</strong></div>
+              <div class="muted">witnesses report; guards investigate</div>
+            </div>
+            <p>
+              Activities: ask around the hamlet for work, carry a courier letter to town, or spar in the training yard.
+            </p>
+            <div class="row">
+              <button id="btnCloseHelp" class="btn btnWide">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="panelDialogue" class="panel">
+          <div class="card">
+            <h2 id="dlgTitle">Dialogue</h2>
+            <p id="dlgBody" class="muted">...</p>
+            <div id="dlgChoices" class="stack"></div>
+            <div class="row">
+              <button id="btnDlgClose" class="btn btnWide">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="panelArrest" class="panel">
+          <div class="card">
+            <h2>Arrest</h2>
+            <p id="arrestBody" class="muted">
+              A guard blocks your path. “By the King’s peace, you will come with us.”
+            </p>
+            <div class="row">
+              <button id="btnComply" class="btn btnWide">Comply</button>
+              <button id="btnResist" class="btn btnWide btnDanger">Resist</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Runtime scripts (no module imports; file:// friendly) -->
+    <script src="./src/lw_boot.js"></script>
+    <script src="./src/core/util.js"></script>
+    <script src="./src/core/rng.js"></script>
+    <script src="./src/core/math.js"></script>
+    <script src="./src/core/pool.js"></script>
+    <script src="./src/core/storage.js"></script>
+    <script src="./src/core/input.js"></script>
+    <script src="./src/core/audio.js"></script>
+    <script src="./src/core/loop.js"></script>
+
+    <script src="./src/game/tiles.js"></script>
+    <script src="./src/game/worldgen.js"></script>
+    <script src="./src/game/world.js"></script>
+    <script src="./src/game/path.js"></script>
+    <script src="./src/game/entity.js"></script>
+    <script src="./src/game/combat.js"></script>
+    <script src="./src/game/law.js"></script>
+    <script src="./src/game/quests.js"></script>
+    <script src="./src/game/npc.js"></script>
+    <script src="./src/game/player.js"></script>
+    <script src="./src/ui/ui.js"></script>
+    <script src="./src/ui/dialogue.js"></script>
+    <script src="./src/ui/menu.js"></script>
+    <script src="./src/main.js"></script>
+  </body>
+</html>
