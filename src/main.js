@@ -539,7 +539,7 @@
     ctx.strokeStyle = 'rgba(239,231,214,0.16)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.roundRect(12, 64, 220, 120, 12);
+    ctx.roundRect(12, 64, 240, 152, 12);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = 'rgba(239,231,214,0.92)';
@@ -556,7 +556,9 @@
       `Tile: ${tx},${ty}`,
       `Chunk: ${cx},${cy}`,
       `Night: ${this.world.isNight() ? 'yes' : 'no'}`,
-      `Path req: ${LW.path?.stats?.requests ?? 0}`,
+      `Wanted: ${LW.law?.wanted ?? 0}`,
+      `Rep (G/T/N/R): ${LW.law?.reputation?.guards ?? 0}/${LW.law?.reputation?.townfolk ?? 0}/${LW.law?.reputation?.nobles ?? 0}/${LW.law?.reputation?.rebels ?? 0}`,
+      `Path: ${LW.path?.stats?.hits ?? 0} hit / ${LW.path?.stats?.requests ?? 0} req`,
     ];
     for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], 22, 88 + i * 16);
     ctx.restore();
