@@ -376,6 +376,20 @@
       // Wilderness threats near roads / woods
       for (let i = 0; i < 6; i++) spawnOne(ROLE.BANDIT, a.town.x - 70, a.town.y + 20, 22, 'bandits', 0);
       for (let i = 0; i < 5; i++) spawnOne(ROLE.REBEL, a.fort.x - 40, a.fort.y + 10, 22, 'rebels', 0);
+
+      // Social gravity: townfolk tend to drift to the tavern at leisure.
+      const tavTx = a.town.x + 6;
+      const tavTy = a.town.y + 2;
+      for (let i = 0; i < this.npcs.length; i++) {
+        const n = this.npcs[i];
+        if (!n || n.dead) continue;
+        if (n.faction !== 'townfolk') continue;
+        const nearTown = Math.abs(n.homeTx - a.town.x) + Math.abs(n.homeTy - a.town.y) < 60;
+        if (nearTown) {
+          n.leisureTx = tavTx + (n._rng ? n._rng.iRange(-4, 4) : 0);
+          n.leisureTy = tavTy + (n._rng ? n._rng.iRange(-3, 3) : 0);
+        }
+      }
     },
 
     update(dt, app) {
