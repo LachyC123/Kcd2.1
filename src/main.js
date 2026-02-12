@@ -27,6 +27,7 @@
 
     this._debugText = '';
     this._debugT = 0;
+    this._vignette = null;
 
     this._bindUI();
     this._bindCanvasResize();
@@ -72,6 +73,7 @@
       this._dpr = dpr;
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.input.onResize(w, h, dpr);
+      this._vignette = null;
     };
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
@@ -111,6 +113,9 @@
     this.player.y = (a.y + 2) * t + t * 0.5;
     this.cameraX = this.player.x;
     this.cameraY = this.player.y;
+
+    // Spawn living world NPCs for this seed.
+    if (LW.npc && LW.npc.spawnForWorld) LW.npc.spawnForWorld(this);
 
     // Start loop if needed.
     if (!this._running) {
@@ -216,8 +221,16 @@
   };
 
   App.prototype._tryInteract = function () {
-    // Placeholder: open a dialogue with "self" tips.
     if (this.dialogue.active) return;
+
+    // Prefer interacting with nearest NPC in range.
+    const near = LW.npc && LW.npc.nearestTo ? LW.npc.nearestTo(this, this.player.x, this.player.y, 40) : null;
+    if (near) {
+      LW.npc.openDialogue(this, near);
+      return;
+    }
+
+    // Fallback: open a dialogue with "self" tips.
     const w = this.world;
     const t = LW.consts.TILE;
     const tx = Math.floor(this.player.x / t);
@@ -335,15 +348,32 @@
 
     // Subtle vignette/shadow (reduced in low power)
     if (!LW.flags.lowPower) {
-      const g = ctx.createRadialGradient(viewW * 0.5, viewH * 0.5, 30, viewW * 0.5, viewH * 0.5, Math.max(viewW, viewH) * 0.75);
-      g.addColorStop(0, 'rgba(0,0,0,0)');
-      g.addColorStop(1, night ? 'rgba(0,0,0,0.50)' : 'rgba(0,0,0,0.34)');
-      ctx.fillStyle = g;
+      if (!this._vignette || this._vignette.w !== viewW || this._vignette.h !== viewH || this._vignette.night !== night) {
+        const g = ctx.createRadialGradient(
+          viewW * 0.5,
+          viewH * 0.5,
+          30,
+          viewW * 0.5,
+          viewH * 0.5,
+          Math.max(viewW, viewH) * 0.75
+        );
+        g.addColorStop(0, 'rgba(0,0,0,0)');
+        g.addColorStop(1, night ? 'rgba(0,0,0,0.50)' : 'rgba(0,0,0,0.34)');
+        this._vignette = { w: viewW, h: viewH, night, g };
+      }
+      ctx.fillStyle = this._vignette.g;
       ctx.fillRect(0, 0, viewW, viewH);
     }
 
     // Draw player paper-doll silhouette
+    // NPCs first, then player on top (simple ordering).
+    if (LW.npc && LW.npc.npcs) {
+      for (let i = 0; i < LW.npc.npcs.length; i++) this._drawPerson(LW.npc.npcs[i], left, top, false);
+    }
     this._drawPerson(this.player, left, top, true);
+
+    // Speech bubbles
+    if (LW.npc && LW.npc.bubbles) this._drawBubbles(left, top);
 
     // Debug overlay
     if (LW.flags.debug) this._drawDebug(left, top);
@@ -368,10 +398,16 @@
     ctx.ellipse(x, y + 8, 7, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Colors
+    // Colors (faction/rank silhouette)
     const ink = 'rgba(10,8,6,0.92)';
     const paper = isPlayer ? 'rgba(239,231,214,0.90)' : 'rgba(239,231,214,0.82)';
-    const cloth = isPlayer ? 'rgba(193,139,58,0.78)' : 'rgba(193,139,58,0.58)';
+    let cloth = isPlayer ? 'rgba(193,139,58,0.78)' : 'rgba(193,139,58,0.58)';
+    if (!isPlayer && e && e.faction) {
+      if (e.faction === 'guards') cloth = 'rgba(47,122,76,0.62)';
+      else if (e.faction === 'nobles') cloth = 'rgba(224,184,106,0.72)';
+      else if (e.faction === 'rebels') cloth = 'rgba(179,58,46,0.58)';
+      else if (e.faction === 'bandits') cloth = 'rgba(33,30,26,0.72)';
+    }
 
     // Torso
     ctx.fillStyle = cloth;
@@ -409,13 +445,55 @@
     ctx.stroke();
 
     // Block stance
-    if (this.player.blocking) {
+    if (isPlayer && e.blocking) {
       ctx.strokeStyle = 'rgba(239,231,214,0.65)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(x, y - 2, 10, 0, Math.PI * 2);
       ctx.stroke();
     }
+  };
+
+  App.prototype._drawBubbles = function (left, top) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < LW.npc.bubbles.length; i++) {
+      const b = LW.npc.bubbles[i];
+      const x = b.x - left;
+      const y = b.y - top - 28;
+      const text = b.text;
+      const padX = 8;
+      const padY = 6;
+      const tw = ctx.measureText(text).width;
+      const w = Math.min(260, tw + padX * 2);
+      const h = 22;
+      const bx = x - w * 0.5;
+      const by = y - h;
+
+      ctx.fillStyle = 'rgba(20,17,13,0.82)';
+      ctx.strokeStyle = 'rgba(239,231,214,0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, w, h, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      // tail
+      ctx.fillStyle = 'rgba(20,17,13,0.82)';
+      ctx.beginPath();
+      ctx.moveTo(x - 4, by + h);
+      ctx.lineTo(x + 4, by + h);
+      ctx.lineTo(x, by + h + 6);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(239,231,214,0.92)';
+      const clipped = text.length > 56 ? text.slice(0, 55) + '…' : text;
+      ctx.fillText(clipped, bx + padX, by + h * 0.5);
+    }
+    ctx.restore();
   };
 
   App.prototype._drawDebug = function (left, top) {
