@@ -77,6 +77,18 @@
       this.faction = 'townfolk';
       this.rank = 0;
 
+      // Combat stats/state
+      this.hp = 60;
+      this.hpMax = 60;
+      this.sta = 60;
+      this.staMax = 60;
+      this.bleedT = 0;
+      this.hostile = false;
+      this.atkPhase = 0; // 0 idle, 1 windup, 2 active, 3 recover
+      this.atkT = 0;
+      this.atkCd = 0;
+      this.atkHit = 0;
+
       this.homeTx = 0;
       this.homeTy = 0;
       this.jobTx = 0;
@@ -269,6 +281,36 @@
         if (role === ROLE.GUARD) n.speed = 54;
         if (role === ROLE.NOBLE) n.speed = 44;
         if (role === ROLE.BANDIT || role === ROLE.REBEL) n.speed = 52;
+
+        // Stats by role
+        if (role === ROLE.GUARD) {
+          n.hpMax = 92;
+          n.hp = 92;
+          n.staMax = 80;
+          n.sta = 80;
+        } else if (role === ROLE.NOBLE) {
+          n.hpMax = 70;
+          n.hp = 70;
+          n.staMax = 60;
+          n.sta = 60;
+        } else if (role === ROLE.BANDIT) {
+          n.hpMax = 76;
+          n.hp = 76;
+          n.staMax = 70;
+          n.sta = 70;
+          n.hostile = false; // will aggro near player
+        } else if (role === ROLE.REBEL) {
+          n.hpMax = 80;
+          n.hp = 80;
+          n.staMax = 74;
+          n.sta = 74;
+          n.hostile = false;
+        } else {
+          n.hpMax = 62;
+          n.hp = 62;
+          n.staMax = 62;
+          n.sta = 62;
+        }
 
         app.entities.add(n);
         this.npcs.push(n);

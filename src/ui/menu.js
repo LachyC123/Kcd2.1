@@ -62,16 +62,16 @@
       this.app.ui.toast(LW.flags.lowPower ? 'Low power mode ON' : 'Low power mode OFF');
     });
 
-    // Arrest panel (wired later by law system)
+    // Arrest panel
     this.btnComply.addEventListener('click', (e) => {
       e.preventDefault();
       this.hideArrest();
-      this.app.ui.toast('You comply. (Arrest flow not yet wired.)');
+      if (this.app && this.app.onArrestChoice) this.app.onArrestChoice('comply');
     });
     this.btnResist.addEventListener('click', (e) => {
       e.preventDefault();
       this.hideArrest();
-      this.app.ui.toast('You resist. (Combat escalation not yet wired.)');
+      if (this.app && this.app.onArrestChoice) this.app.onArrestChoice('resist');
     });
   }
 

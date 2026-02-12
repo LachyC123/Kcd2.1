@@ -164,33 +164,40 @@
     // Stream around player.
     this.world.streamAround(this.player.x, this.player.y, 2);
 
-    // Player movement (touch joystick).
-    const ix = this.input.joyDx;
-    const iy = this.input.joyDy;
-    const mag = this.input.joyMag;
-    const move = LW.math.norm(ix, iy);
-    if (move.d > 0.001) this.player.facing = LW.math.angleTo(move.x, move.y);
+    const uiLocked = this._isUiBlocking();
 
-    this.player.blocking = !!this.input.btnBlock;
-    const running = mag > 0.72 && !this.player.blocking;
+    if (!uiLocked) {
+      // Player movement (touch joystick).
+      const ix = this.input.joyDx;
+      const iy = this.input.joyDy;
+      const mag = this.input.joyMag;
+      const move = LW.math.norm(ix, iy);
+      if (move.d > 0.001) this.player.facing = LW.math.angleTo(move.x, move.y);
 
-    // Stamina regen/usage
-    const staRegen = this.player.blocking ? 6 : 10;
-    this.player.sta = Math.min(this.player.staMax, this.player.sta + staRegen * dt);
-    if (running) this.player.sta = Math.max(0, this.player.sta - 14 * dt);
-    const tired = this.player.sta <= 8;
-    const speedMul = this.world.speedMulAtWorld(this.player.x, this.player.y);
-    const base = this.player.speed * speedMul * (running && !tired ? this.player.runMul : 1);
+      this.player.blocking = !!this.input.btnBlock;
+      const running = mag > 0.72 && !this.player.blocking;
 
-    const vx = move.x * base * mag;
-    const vy = move.y * base * mag;
-    this._moveWithCollision(this.player, vx, vy, dt);
+      // Stamina regen/usage
+      const staRegen = this.player.blocking ? 6 : 10;
+      this.player.sta = Math.min(this.player.staMax, this.player.sta + staRegen * dt);
+      if (running) this.player.sta = Math.max(0, this.player.sta - 14 * dt);
+      const tired = this.player.sta <= 8;
+      const speedMul = this.world.speedMulAtWorld(this.player.x, this.player.y);
+      const base = this.player.speed * speedMul * (running && !tired ? this.player.runMul : 1);
 
-    // Inputs (one-shots)
-    const pressed = this.input.consumePressed();
-    if (pressed.interact) this._tryInteract();
-    if (pressed.dodge) this._tryDodge();
-    if (this.input.btnAttack) this._tryAttack(dt);
+      const vx = move.x * base * mag;
+      const vy = move.y * base * mag;
+      this._moveWithCollision(this.player, vx, vy, dt);
+
+      // Inputs (one-shots)
+      const pressed = this.input.consumePressed();
+      if (pressed.interact) this._tryInteract();
+      if (pressed.dodge) this._tryDodge();
+    } else {
+      // UI panels open: prevent accidental actions.
+      this.player.blocking = false;
+      this.input.consumePressed();
+    }
 
     // Systems (stubbed for now)
     LW.npc.update(dt, this);
@@ -368,7 +375,10 @@
     // Draw player paper-doll silhouette
     // NPCs first, then player on top (simple ordering).
     if (LW.npc && LW.npc.npcs) {
-      for (let i = 0; i < LW.npc.npcs.length; i++) this._drawPerson(LW.npc.npcs[i], left, top, false);
+      for (let i = 0; i < LW.npc.npcs.length; i++) {
+        const n = LW.npc.npcs[i];
+        if (n && !n.dead) this._drawPerson(n, left, top, false);
+      }
     }
     this._drawPerson(this.player, left, top, true);
 
@@ -443,6 +453,26 @@
     ctx.moveTo(x + fx * 6, y - 2 + fy * 6);
     ctx.lineTo(x + fx * 10, y + 3 + fy * 10);
     ctx.stroke();
+
+    // Telegraph (windup): readable red arc
+    if (!isPlayer && e.atkPhase === 1) {
+      ctx.strokeStyle = 'rgba(179,58,46,0.78)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y - 2, 14, facing - 0.8, facing + 0.8);
+      ctx.stroke();
+    }
+
+    // Hostile marker
+    if (!isPlayer && e.hostile) {
+      ctx.fillStyle = 'rgba(179,58,46,0.86)';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 24, 4.5, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
 
     // Block stance
     if (isPlayer && e.blocking) {
@@ -544,6 +574,21 @@
     ctx.arc(x, y, 14, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
+  };
+
+  App.prototype._isUiBlocking = function () {
+    // Any full-screen panel blocks gameplay input.
+    if (this.dialogue && this.dialogue.active) return true;
+    if (this.menu) {
+      if (this.menu.panel.classList.contains('show')) return true;
+      if (this.menu.panelHelp.classList.contains('show')) return true;
+      if (this.menu.panelArrest.classList.contains('show')) return true;
+    }
+    return false;
+  };
+
+  App.prototype.onArrestChoice = function (choice) {
+    if (LW.law && LW.law.onArrestChoice) LW.law.onArrestChoice(this, choice);
   };
 
   LW.app = new App();
